@@ -17,12 +17,15 @@ from src.nnet.unet.UNET import UNET
 from src.utils import (
     getTestSet,
     getDevice,
-    load_checkpoint,
-    set_seed,
-    test
 )
 
 def compute_metrics(y, y_pred):
+    '''
+    Compute the metrics for the model
+    :param y:  ground truth
+    :param y_pred:  predictions
+    :return:  accuracy, f1, precision, recall, roc_auc, roc_curve_fpr, roc_curve_tpr
+    '''
 
     """"Ground truth"""""
     y = y.cpu().detach().numpy()
@@ -58,15 +61,16 @@ if __name__ == "__main__":
     image_height = 320  # 320
     image_width = 480  # 480
 
+    # Define the transformations
     test_transforms = A.Compose(
         [
-            A.Resize(height=image_height, width=image_width),
-            A.Normalize(
-                mean=[0.0, 0.0, 0.0],
+            A.Resize(height=image_height, width=image_width), # Resize the image to a fixed size
+            A.Normalize( # Normalize the image
+                mean=[0.0, 0.0, 0.0], # mean and standard deviation for the three channels
                 std=[1.0, 1.0, 1.0],
-                max_pixel_value=255.0,
+                max_pixel_value=255.0, # maximum pixel value
             ),
-            ToTensorV2(),
+            ToTensorV2(), # Convert the image to a PyTorch tensor
         ]
     )
 
@@ -75,6 +79,7 @@ if __name__ == "__main__":
     LOAD_MODEL = False
     batch_size = 4  # 4
 
+    # generate the test set data loader
     testloader = getTestSet(test_folder,
                             test_masks,
                             test_transforms,
@@ -84,17 +89,17 @@ if __name__ == "__main__":
                             LOAD_MODEL)
 
     ### hyperparameters
-    # Hyperparameters
     LEARNING_RATE = 1e-4
     device = getDevice()
     num_epochs = 3
     checkpoint_path = "../output/unet/state/my_checkpoint_3.pth"
 
     print("=> Loading model")
+    # create the model
     model = UNET(in_channels=3, out_channels=1)
-    model.to(device)
-    model.load_state_dict(torch.load(checkpoint_path, map_location=device))
-    model.eval()
+    model.to(device) # move the model to the device
+    model.load_state_dict(torch.load(checkpoint_path, map_location=device)) # load the model state from the checkpoint
+    model.eval() # set the model to evaluation mode
 
     # Loss and optimizer
     print("=> metrics")
@@ -115,6 +120,7 @@ if __name__ == "__main__":
         X = x.to(device)
         y = y.unsqueeze(1).to(device)
         with torch.no_grad():
+            #
             preds = torch.sigmoid(model(X))
 
             # return accuracy, f1, precision, recall, roc_auc, roc_curve_fpr, roc_curve_tpr
@@ -135,10 +141,10 @@ if __name__ == "__main__":
             preds_ex = preds_ex.cpu()
             y_ex = y_ex.cpu()
 
-            concatenated = torch.cat((x, y_ex, preds_ex), dim=2)
-            torchvision.utils.save_image(concatenated, f"{output_img}test_{idx}.png")
+            concatenated = torch.cat((x, y_ex, preds_ex), dim=2) # Concatenate the images
+            torchvision.utils.save_image(concatenated, f"{output_img}test_{idx}.png") # Save the image
 
-
+    # Save the metrics to a csv file
     df = pd.DataFrame(data={
         "accuracy": accuracy,
         "f1": f1,

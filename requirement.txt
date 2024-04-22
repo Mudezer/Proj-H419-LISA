@@ -1,5 +1,4 @@
 jupyterlab
-
 numpy
 pandas
 IPython
@@ -11,3 +10,6 @@ torchvision
 torchaudio
 tqdm
 scikit-image
+keras
+tensorflow
+sklearn

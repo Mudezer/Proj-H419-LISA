@@ -6,22 +6,26 @@ import pandas as pd
 import random
 import os
 import numpy as np
-import cv2
-import tqdm
-from glob import glob
-from PIL import Image
 
 
-def getLoaders(train_dir,
-             train_masks,
-             test_dir,
-             test_masks,
-             train_transforms,
-             test_transforms,
-             batch_size,
-             num_workers,
-             pin_memory,
+
+def getLoaders(train_dir,# directory where the training images are stored
+             train_masks, # directory where the training masks are stored
+             test_dir, # directory where the testing images are stored
+             test_masks, # directory where the testing masks are stored
+             train_transforms, # transformations to be applied to the training images and masks
+             test_transforms, # transformations to be applied to the testing images and masks
+             batch_size, # number of samples per batch
+             num_workers, # number of subprocesses to use for data loading
+             pin_memory, # if True, the data loader will copy Tensors into CUDA pinned memory before returning them
              LOAD_MODEL):
+    '''
+    Set up the data loaders for the training and validating sets.
+    1) Create the training and validation datasets
+    2) Create the training and validation data loaders with the specified batch size, number of workers and pin memory
+    3) Return the training and validation data loaders
+    '''
+
     train_ds = SegmentationDataset(image_dir=train_dir,
                                 mask_dir=train_masks,
                                 transform=train_transforms)
@@ -29,7 +33,7 @@ def getLoaders(train_dir,
                             batch_size=batch_size,
                             num_workers=num_workers,
                             pin_memory=pin_memory,
-                            shuffle=True)
+                            shuffle=True) # shuffle the data to avoid overfitting
     test_ds = SegmentationDataset(image_dir=test_dir,
                                 mask_dir=test_masks,
                                 transform=test_transforms)
@@ -37,7 +41,7 @@ def getLoaders(train_dir,
                             batch_size=batch_size,
                             num_workers=num_workers,
                             pin_memory=pin_memory,
-                            shuffle=False)
+                            shuffle=False) # no need to shuffle the data for validation
 
     return train_loader, test_loader
 
@@ -47,6 +51,14 @@ def getTestSet(test_dir,
              num_workers,
              pin_memory,
              LOAD_MODEL):
+
+    '''
+    Set up the data loaders for the testing set.
+    1) Create the testing dataset
+    2) Create the testing data loader with the specified batch size, number of workers and pin memory
+    3) Return the testing data loader
+    '''
+
     test_ds = SegmentationDataset(image_dir=test_dir,
                                   mask_dir=test_masks,
                                   transform=test_transforms)
@@ -59,6 +71,13 @@ def getTestSet(test_dir,
     return test_loader
 
 def getDevice():
+
+    ''''
+    Get the device to be used for the neural network.
+    1) Check if a GPU is available,
+    2) elif not check if the MPS is available,
+    3) elif not use the CPU.
+    '''
     device = (
         "cuda"
         if torch.cuda.is_available()
@@ -72,71 +91,14 @@ def getDevice():
 
 
 def save_checkpoint(state, filename="../ouput/unet/state/my_checkpoint.pth"):
+    '''
+    Save the model state and optimizer state to a file.
+    :param state: the model state and optimizer state
+    :param filename: the path to the file where the model state and optimizer state will be saved
+    :return: None
+    '''
     print("=> Saving checkpoint")
     torch.save(state, filename)
-
-def load_checkpoint(checkpoint, model, optimizer):
-    print("=> Loading checkpoint")
-    model.load_state_dict(checkpoint["state_dict"])
-    optimizer.load_state_dict(checkpoint["optimizer"])
-
-def output_loss_to_csv(epochs, train_loss,validation_loss, path = "../output/unet/results/training_losses.csv"):
-    df = pd.DataFrame(data={"epoch":epochs,"train_loss":train_loss, "validation_loss":validation_loss})
-    df.to_csv(path, sep=",",index=False)
-
-""" Seeding the randomness. """
-def set_seed(seed):
-    random.seed(seed)
-    os.environ["PYTHONHASHSEED"] = str(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.backends.cudnn.deterministic = True
-
-def mask_parse(mask):
-    mask = np.expand_dims(mask, axis=-1)
-    mask = np.concatenate([mask, mask, mask], axis=-1)
-    return mask
-
-
-def test(loader, model, folder=None, device = "mps"):
-    model.eval()
-
-    for idx, (x,y) in list(enumerate(loader))[:1]:
-        X = x.to(device)
-        y = y.to(device)
-        with torch.no_grad():
-            preds = torch.sigmoid(model(X))
-            preds = (preds > 0.5).float()
-
-        print(f"y before unsqueeze : {y.shape}")
-        print(f"preds before expansion : {preds.shape}")
-        yy = y.unsqueeze(1)
-
-        print(preds.shape)
-        print(y.shape)
-        print(yy.shape)
-
-        preds_ex = preds.expand(-1, 3, -1, -1)  # Expand the second dimension to 3
-        yy_ex = yy.expand(-1, 3, -1, -1)  # Expand the second dimension to 3
-        print(x.shape)
-        print("new shapes")
-        print(preds_ex.shape)
-        print(yy_ex.shape)
-
-        preds_ex = preds_ex.cpu()
-        yy_ex = yy_ex.cpu()
-
-        print(f"device for x: {x.get_device()}")
-        print(f"device for preds: {preds_ex.get_device()}")
-        print(f"device for yy: {yy_ex.get_device()}")
-
-
-
-        concatenated_tensor = torch.cat((x, yy_ex, preds_ex), dim=2)
-        torchvision.utils.save_image(concatenated_tensor,f"test_{idx}.png")
-
-
 
 
 
