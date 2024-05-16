@@ -6,8 +6,8 @@ class DoubleConv(nn.Module):
     '''
     This class is used to create the double convolutional layer for the UNET model.
     We have two 2D convolutional layers with a kernel size of 3 and stride (step) of 1 and padding of 1.
-    The bias is set to False as the a 2D batch normalization layer is added after each convolutional layer.
-    The final layer is a ReLU activation function in order to have non zero values.
+    The bias is set to False as the 2D batch normalization layer is added after each convolutional layer.
+    The final layer is a ReLU activation function in order to have non-zero values.
     '''
     def __init__(self, in_channels, out_channels):
         super(DoubleConv, self).__init__()
